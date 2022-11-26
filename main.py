@@ -10,13 +10,13 @@ PARTS_FILE = 'ts_files.txt'
 Path(PARTS_DIR).mkdir(exist_ok=True)
 
 
-def get_urls(from_file: str) -> Generator[str]:
+def get_urls(from_file: str) -> Generator[str, None, None]:
     with open(from_file) as fr:
         text = fr.readlines()
     return (line.strip() for line in text if line.startswith('https://'))
 
 
-def download_video_parts(to_directory: str, urls: Generator[str]) -> int:
+def download_video_parts(to_directory: str, urls: Generator[str, None, None]) -> int:
     """
 
     :param to_directory: where to save
