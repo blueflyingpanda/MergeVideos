@@ -1,3 +1,5 @@
+import shutil
+
 import requests
 import subprocess
 from tqdm import tqdm
@@ -6,14 +8,21 @@ from typing import Generator
 
 
 PARTS_DIR = 'video_parts'
+VIDEOS_DIR = 'downloaded_videos'
 PARTS_FILE = 'ts_files.txt'
-Path(PARTS_DIR).mkdir(exist_ok=True)
 
 
-def get_urls(from_file: str) -> Generator[str, None, None]:
+def map_to_url(from_file: str) -> dict[str, str]:
+
     with open(from_file) as fr:
-        text = fr.readlines()
-    return (line.strip() for line in text if line.startswith('https://'))
+        lines = tuple((line.strip() for line in fr.readlines()))
+
+    return dict(zip(lines[::2], lines[1::2]))
+
+
+def extract_ts_urls(from_url: str) -> Generator[str, None, None]:
+    response = requests.get(from_url)
+    return (line.strip() for line in response.text.split('\n') if line.startswith('https://'))
 
 
 def download_video_parts(to_directory: str, urls: Generator[str, None, None]) -> int:
@@ -24,11 +33,15 @@ def download_video_parts(to_directory: str, urls: Generator[str, None, None]) ->
     :return: amount of files
     """
     i = 0
+
     for url in tqdm(urls):
         response = requests.get(url)
+
         with open(f'{to_directory}/{i}.ts', 'wb') as fwb:
             fwb.write(response.content)
+
         i += 1
+
     return i
 
 
@@ -41,9 +54,24 @@ def list_parts(in_file: str, number_of_parts: int) -> None:
 
 
 if __name__ == '__main__':
+    print('Parse config file.')
 
-    urls = get_urls(from_file='video_urls.txt')
-    number_of_parts = download_video_parts(to_directory=PARTS_DIR, urls=urls)
-    list_parts(in_file=PARTS_FILE, number_of_parts=number_of_parts)
+    video_to_url = map_to_url(from_file='video_urls.txt')
 
-    subprocess.run(['ffmpeg', '-f', 'concat', '-i', PARTS_FILE, '-c', 'copy', 'video.mp4'])
+    print(f'{len(video_to_url)} videos specified in config.')
+
+    Path(VIDEOS_DIR).mkdir(exist_ok=True)
+
+    for name, url in video_to_url.items():
+        print(f'Get video: {name}')
+
+        Path(PARTS_DIR).mkdir(exist_ok=True)
+
+        urls = extract_ts_urls(from_url=url)
+        number_of_parts = download_video_parts(to_directory=PARTS_DIR, urls=urls)
+        list_parts(in_file=PARTS_FILE, number_of_parts=number_of_parts)
+
+        print(f'Merge {number_of_parts} video parts.')
+        subprocess.run(['ffmpeg', '-f', 'concat', '-i', PARTS_FILE, '-c', 'copy', f'{VIDEOS_DIR}/{name}.mp4'])
+
+        shutil.rmtree(PARTS_DIR)
