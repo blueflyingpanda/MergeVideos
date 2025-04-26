@@ -20,9 +20,19 @@ def map_to_url(from_file: str) -> dict[str, str]:
     return dict(zip(lines[::2], lines[1::2]))
 
 
+def get_ts_url(url: str, base_url) -> str | None:
+
+    if url.startswith('.'):
+        return f'{base_url}{url[1:]}'  # remove leading '.'
+
+    return url if url.startswith('https://') else None
+
+
 def extract_ts_urls(from_url: str) -> Generator[str, None, None]:
     response = requests.get(from_url)
-    return (line.strip() for line in response.text.split('\n') if line.startswith('https://'))
+    base_url, _, _ = from_url.rpartition('/')
+
+    return (ts_url.strip() for line in response.text.split('\n') if (ts_url := get_ts_url(line, base_url)) is not None)
 
 
 def download_video_parts(to_directory: str, urls: Generator[str, None, None]) -> int:
@@ -35,7 +45,7 @@ def download_video_parts(to_directory: str, urls: Generator[str, None, None]) ->
     i = 0
 
     for url in tqdm(urls):
-        response = requests.get(url)
+        response = requests.get(url, timeout=60)
 
         with open(f'{to_directory}/{i}.ts', 'wb') as fwb:
             fwb.write(response.content)
