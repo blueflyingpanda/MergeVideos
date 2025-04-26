@@ -132,3 +132,5 @@ dmypy.json
 .DS_Store
 *.ts
 *.mp4
+
+ts_files.txt
