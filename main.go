@@ -223,7 +223,4 @@ func main() {
 			log.Println("could not merge:", mergeResult.name, mergeResult.err)
 		}
 	}
-
-	close(downloadResults)
-	close(mergeResults)
 }
